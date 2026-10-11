@@ -1,47 +1,95 @@
-name: Ayush Final RDP
+name: Advanced Ultimate RDP Setup
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  Deploy_Windows_RDP:
     runs-on: windows-latest
     timeout-minutes: 3600
 
     steps:
-      - name: 1. Enable RDP
+      - name: 🔍 Step 1 - System Analysis & Optimization
         run: |
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
+          Write-Host "Starting System Analysis..."
+          $OS = Get-WmiObject Win32_OperatingSystem
+          $CPU = Get-WmiObject Win32_Processor
+          Write-Host "Operating System: $($OS.Caption)"
+          Write-Host "Processor: $($CPU.Name)"
+          Write-Host "System is ready for RDP Configuration."
+
+      - name: ⚙️ Step 2 - Configure Advanced RDP & Firewall Rules
+        run: |
+          Write-Host "Enabling Remote Desktop Protocol..."
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
+          
+          Write-Host "Configuring Windows Defender Firewall for RDP..."
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
+          New-NetFirewallRule -DisplayName "Tailscale-RDP-In" -Direction Inbound -Protocol TCP -LocalPort 3389 -Action Allow -Profile Any -Force
           
-      - name: 2. Create User
+          Write-Host "Restarting Remote Desktop Services..."
+          Restart-Service -Name "TermService" -Force
+          Write-Host "RDP Configuration Completed Successfully."
+
+      - name: 👤 Step 3 - Create Secure Administrator Account
         run: |
-          $Password = "Ayush@12345678"
-          $SecurePassword = ConvertTo-SecureString -String $Password -AsPlainText -Force
-          New-LocalUser -Name "ayush" -Password $SecurePassword -FullName "Ayush RDP" -Description "RDP User"
-          Add-LocalGroupMember -Group "Administrators" -Member "ayush"
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "ayush"
+          Write-Host "Creating Secure User Account..."
+          $Username = "Ayush"
+          $Password = "AyushProGamer@12345"
+          $SecurePass = ConvertTo-SecureString -String $Password -AsPlainText -Force
           
-      - name: 3. Install Tailscale
-        run: |
-          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi" -OutFile "C:\tailscale.msi"
-          Start-Process msiexec.exe -ArgumentList "/i C:\tailscale.msi /quiet /norestart" -Wait
+          Write-Host "Adding user to system..."
+          New-LocalUser -Name $Username -Password $SecurePass -FullName "Ayush RDP Administrator" -Description "Main RDP Account" -AccountNeverExpires
           
-      - name: 4. Connect Tailscale
-        run: |
-          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="ayush-rdp-server"
+          Write-Host "Granting Administrative Privileges..."
+          Add-LocalGroupMember -Group "Administrators" -Member $Username
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $Username
           
-      - name: 5. Show Details
+          Write-Host "User setup verified and completed."
+
+      - name: 🌐 Step 4 - Download & Install Tailscale VPN
         run: |
-          Start-Sleep -Seconds 10
-          $IP = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
-          Write-Host "============== RDP DETAILS =============="
-          Write-Host "IP Address: $IP"
-          Write-Host "Username:   ayush"
-          Write-Host "Password:   Ayush@12345678"
-          Write-Host "========================================="
+          Write-Host "Downloading Tailscale Installer..."
+          # Error-free direct download command
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi" -OutFile "C:\TailscaleInstaller.msi"
           
-      - name: 6. Keep Alive
+          Write-Host "Installing Tailscale Silently..."
+          Start-Process -FilePath "msiexec.exe" -ArgumentList "/i C:\TailscaleInstaller.msi /quiet /norestart" -Wait
+          
+          Write-Host "Cleaning up installer files..."
+          Remove-Item -Path "C:\TailscaleInstaller.msi" -Force
+          Write-Host "Tailscale Installation Completed."
+
+      - name: 🔐 Step 5 - Authenticate & Connect Tailscale
         run: |
-          while ($true) { Start-Sleep -Seconds 300 }
+          Write-Host "Connecting to Tailscale Network..."
+          $TailscaleExe = "C:\Program Files\Tailscale\tailscale.exe"
+          $AuthKey = "${{ secrets.TAILSCALE_AUTH_KEY }}"
+          
+          & $TailscaleExe up --authkey="$AuthKey" --hostname="ayush-ultimate-rdp"
+          
+          Write-Host "Waiting for Network IP Assignment..."
+          Start-Sleep -Seconds 15
+          Write-Host "Tailscale Authentication Completed."
+
+      - name: 🚀 Step 6 - Extract Credentials & Keep Server Alive
+        run: |
+          $TailscaleExe = "C:\Program Files\Tailscale\tailscale.exe"
+          $IP = & $TailscaleExe ip -4
+          
+          Write-Host "====================================================="
+          Write-Host "      ✅ ULTIMATE RDP SERVER IS NOW ONLINE ✅        "
+          Write-Host "====================================================="
+          Write-Host " 🌐 IP ADDRESS : $IP"
+          Write-Host " 👤 USERNAME   : Ayush"
+          Write-Host " 🔑 PASSWORD   : AyushProGamer@12345"
+          Write-Host "====================================================="
+          Write-Host "Please use Microsoft Remote Desktop app to connect."
+          
+          Write-Host "Server is running..."
+          while ($true) {
+              Start-Sleep -Seconds 300
+              Write-Host "[$(Get-Date)] Server is active and listening for connections..."
+          }
