@@ -1,48 +1,47 @@
-name: Secure RDP Fast
+name: Ayush Final RDP
 
 on:
   workflow_dispatch:
 
 jobs:
-  create-rdp:
+  build:
     runs-on: windows-latest
     timeout-minutes: 3600
 
     steps:
-      - name: Enable RDP
+      - name: 1. Enable RDP
         run: |
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
           
-      - name: Create RDP User
+      - name: 2. Create User
         run: |
-          $pass = "AlpGamer@12345"
-          $securePass = ConvertTo-SecureString "$pass" -AsPlainText -Force
-          New-LocalUser -Name "rdpadmin" -Password $securePass -AccountNeverExpires
-          Add-LocalGroupMember -Group "Administrators" -Member "rdpadmin"
-          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "rdpadmin"
+          $Password = "Ayush@12345678"
+          $SecurePassword = ConvertTo-SecureString -String $Password -AsPlainText -Force
+          New-LocalUser -Name "ayush" -Password $SecurePassword -FullName "Ayush RDP" -Description "RDP User"
+          Add-LocalGroupMember -Group "Administrators" -Member "ayush"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "ayush"
           
-      - name: Download & Install Tailscale
+      - name: 3. Install Tailscale
         run: |
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi" -OutFile "C:\tailscale.msi"
           Start-Process msiexec.exe -ArgumentList "/i C:\tailscale.msi /quiet /norestart" -Wait
           
-      - name: Start Tailscale
+      - name: 4. Connect Tailscale
         run: |
-          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="github-runner"
+          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname="ayush-rdp-server"
           
-      - name: Get IP & Credentials
+      - name: 5. Show Details
         run: |
           Start-Sleep -Seconds 10
-          $ip = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
-          Write-Host "======================================"
-          Write-Host "RDP Connection Details:"
-          Write-Host "IP Address: $ip"
-          Write-Host "Username: rdpadmin"
-          Write-Host "Password: AlpGamer@12345"
-          Write-Host "======================================"
+          $IP = & "C:\Program Files\Tailscale\tailscale.exe" ip -4
+          Write-Host "============== RDP DETAILS =============="
+          Write-Host "IP Address: $IP"
+          Write-Host "Username:   ayush"
+          Write-Host "Password:   Ayush@12345678"
+          Write-Host "========================================="
           
-      - name: Keep Alive
+      - name: 6. Keep Alive
         run: |
-          Write-Host "RDP is ready. Connect using the details above."
           while ($true) { Start-Sleep -Seconds 300 }
